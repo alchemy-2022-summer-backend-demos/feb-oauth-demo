@@ -3,7 +3,13 @@ const setup = require('../data/setup');
 const request = require('supertest');
 const app = require('../lib/app');
 
-jest.mock('../lib/services/github');
+jest.mock('../lib/services/github', () => {
+  return {
+    exchangeCodeForToken: jest.fn((code) => `MOCK_TOKEN_FOR_CODE_${code}`),
+    getGithubProfile: jest.fn(),
+  };
+});
+const github = require('../lib/services/github');
 
 describe('why-i-autha routes', () => {
   beforeEach(() => {
@@ -23,6 +29,14 @@ describe('why-i-autha routes', () => {
   });
 
   it('should login and redirect users to /api/v1/github/dashboard', async () => {
+    github.getGithubProfile.mockImplementation(() => {
+      return {
+        login: 'another-user',
+        avatar_url: 'https://www.placecage.com/gif/300/300',
+        email: 'not-real@example.com',
+      };
+    });
+
     const res = await request
       .agent(app)
       .get('/api/v1/github/callback?code=42')
@@ -30,7 +44,7 @@ describe('why-i-autha routes', () => {
 
     expect(res.body).toEqual({
       id: expect.any(String),
-      username: 'fake_github_user',
+      username: 'another-user',
       email: 'not-real@example.com',
       avatar: expect.any(String),
       iat: expect.any(Number),
